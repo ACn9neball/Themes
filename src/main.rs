@@ -32,10 +32,10 @@ enum Commands {
     Random,
     #[command(visible_alias = "-d")]
     Display { name: String },
+    #[command(visible_alias = "-l")]
+    List,
     #[command(visible_alias = "-a")]
-    All,
-    #[command(visible_alias = "-n")]
-    New(NewArgs),
+    Add(NewArgs),
 }
 
 #[derive(Parser, Debug)]
@@ -121,7 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Theme does not exist");
             }
         }
-        Commands::All => {
+        Commands::List => {
             let mut count = 0;
             let mut current: Option<&str> = None;
             for theme in &themes {
@@ -137,7 +137,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Current Theme: {}", value.capitalize());
             }
         }
-        Commands::New(arg) => {
+        Commands::Add(arg) => {
             let title = arg.title.clone();
             let directory = arg.path.clone();
             let theme: Theme = Theme {
