@@ -4,8 +4,10 @@ use clap::{Parser, Subcommand};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{self, File},
+    env::current_dir,
+    fs::{self, File, canonicalize},
     io::BufReader,
+    path::Path,
     process::Command,
 };
 
@@ -138,8 +140,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Commands::Add(arg) => {
-            let title = arg.title.clone();
-            let directory = arg.path.clone();
+            let title = arg.title.clone().to_lowercase();
+            let raw_path = Path::new(&arg.path);
+            let expand_path = shellexpand::tilde(&arg.path).to_string();
+            let directory = match canonicalize(&expand_path) {
+                Ok(p) => p.to_string_lossy().into_owned(),
+                Err(_) => {
+                    if Path::new(&expand_path).is_absolute() {
+                        expand_path
+                    } else {
+                        let mut current_dir = current_dir()?;
+                        current_dir.push(&expand_path);
+                        current_dir.to_string_lossy().into_owned()
+                    }
+                }
+            };
             let theme: Theme = Theme {
                 title: title,
                 directory: directory,
