@@ -1,11 +1,16 @@
+mod browser;
+mod color_parser;
+
 use capitalize::Capitalize;
 use chrono::prelude::*;
 use clap::{Parser, Subcommand};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{self, File},
+    env::current_dir,
+    fs::{self, File, canonicalize, write},
     io::BufReader,
+    path::Path,
     process::Command,
 };
 
@@ -32,10 +37,10 @@ enum Commands {
     Random,
     #[command(visible_alias = "-d")]
     Display { name: String },
+    #[command(visible_alias = "-l")]
+    List,
     #[command(visible_alias = "-a")]
-    All,
-    #[command(visible_alias = "-n")]
-    New(NewArgs),
+    Add(NewArgs),
 }
 
 #[derive(Parser, Debug)]
@@ -121,7 +126,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Theme does not exist");
             }
         }
-        Commands::All => {
+        Commands::List => {
             let mut count = 0;
             let mut current: Option<&str> = None;
             for theme in &themes {
@@ -137,9 +142,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Current Theme: {}", value.capitalize());
             }
         }
-        Commands::New(arg) => {
-            let title = arg.title.clone();
-            let directory = arg.path.clone();
+        Commands::Add(arg) => {
+            let title = arg.title.clone().to_lowercase();
+            let expand_path = shellexpand::tilde(&arg.path).to_string();
+            let directory = match canonicalize(&expand_path) {
+                Ok(p) => p.to_string_lossy().into_owned(),
+                Err(_) => {
+                    if Path::new(&expand_path).is_absolute() {
+                        expand_path
+                    } else {
+                        let mut current_dir = current_dir()?;
+                        current_dir.push(&expand_path);
+                        current_dir.to_string_lossy().into_owned()
+                    }
+                }
+            };
             let theme: Theme = Theme {
                 title: title,
                 directory: directory,
@@ -154,6 +171,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if update {
         let updated = File::create(&config_path)?;
         serde_json::to_writer_pretty(updated, &themes)?;
+        update_files();
     }
 
     Ok(())
@@ -192,5 +210,40 @@ fn random_fn(tthemes: usize, theme: &[usize]) -> usize {
         if !theme.contains(&random) {
             return random;
         }
+    }
+}
+
+fn update_files() {
+    update_browser();
+    bash_updates();
+}
+
+fn update_browser() {
+    let contents = browser::main();
+    let file_name = "userChrome.css";
+    let mut config_path = dirs::config_dir().ok_or("No system config file").unwrap();
+    config_path.push(APP_NAME);
+    fs::create_dir_all(&config_path).unwrap();
+    config_path.push(file_name);
+    write(config_path, contents).unwrap();
+}
+
+fn bash_updates() {
+    let status = Command::new("bash")
+        .arg("-c")
+        .arg(
+            r#"
+            BROWSER_NEW="/home/n9neball/.config/theme/userChrome.css"
+            BROWSER_OLD="/opt/zen-browser-bin/chrome/userChrome.css"
+            LOCATION="/opt/zen-browser-bin/chrome/"
+            cat "$BROWSER_NEW" > "$BROWSER_OLD"
+            rm -rf /home/n9neball/.cache/zen/*/startupCache/
+        "#,
+        )
+        .arg("bash")
+        .status();
+
+    if let Err(e) = status {
+        eprintln!("Failed to execute process: {}", e);
     }
 }
