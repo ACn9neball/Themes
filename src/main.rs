@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let current_date: DateTime<Local> = Local::now();
             let date = current_date.format("%m/%d").to_string();
             if date == String::from("12/25") {
-                let theme = &themes[15];
+                let theme = &themes[0];
                 bash_themes(&theme.directory);
                 bash("/home/n9neball/Scripts/themes.sh");
                 for i in 0..themes.len() {
@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             } else if date == String::from("1/1") {
-                let theme = &themes[16];
+                let theme = &themes[1];
                 bash_themes(&theme.directory);
                 bash("/home/n9neball/Scripts/themes.sh");
                 for i in 0..themes.len() {
@@ -93,7 +93,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             } else {
-                let random = random_fn(themes.len(), exclusion);
+                let mut random = random_fn(themes.len(), exclusion);
+                while random == 1 || random == 0 {
+                    random = random_fn(themes.len(), exclusion);
+                }
                 let theme = &themes[random];
                 bash_themes(&theme.directory);
                 bash("/home/n9neball/Scripts/themes.sh");
